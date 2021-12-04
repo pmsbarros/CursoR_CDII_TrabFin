@@ -1,0 +1,197 @@
+---
+title: "Trabalho Final do Pedro"
+author: "Pedro Barros"
+output: html_document
+---
+#Comando do trabalho
+
+O seu relatório deve (ao menos) responder as seguintes perguntas:
+
+1. Qual o mês do ano com o maior número de filmes? E o dia do ano?
+
+2. Qual o top 5 países com mais filmes na base?
+
+3. Liste todas as moedas que aparecem nas colunas `orcamento` e `receita` da base `imdb_completa`.
+
+4. Considerando apenas orçamentos e receitas em dólar ($), qual o gênero com maior lucro? E com maior nota média?
+
+5. Dentre os filmes na base `imdb_completa`, escolha o seu favorito. Então faça os itens a seguir:
+
+a) Quem dirigiu o filme? Faça uma ficha dessa pessoa: idade (hoje em dia ou data de falecimento), onde nasceu, quantos filmes já dirigiu, qual o lucro médio dos filmes que dirigiu (considerando apenas valores em dólar) e outras informações que achar interessante (base `imdb_pessoas`).
+
+b) Qual a posição desse filme no ranking de notas do IMDB? E no ranking de lucro (considerando apenas valores em dólar)?
+
+c) Em que dia esse filme foi lançado? E dia da semana? Algum outro filme foi lançado no mesmo dia? Quantos anos você tinha nesse dia?
+
+d) Faça um gráfico representando a distribuição da nota atribuída a esse filme por idade (base `imdb_avaliacoes`).
+
+```{r}
+#Instalar o pacote de acesso a dados da CursoR.
+remotes::install_github("curso-r/basesCursoR")
+
+#Obter as bases de dados do repositório da CursoR e criar objetos.
+imdb <- basesCursoR::pegar_base("imdb_completa")
+imdb_pessoas <- basesCursoR::pegar_base("imdb_pessoas")
+imdb_avaliacoes <- basesCursoR::pegar_base("imdb_avaliacoes")
+
+# Carregar os pacotes que usaremos em toda a análise:
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(lubridate)
+library(forcats)
+library(purrr)
+library(ggplot2)
+
+```
+
+#Resolução
+
+##1.
+Qual o mês do ano com o maior número de filmes? E o dia do ano?
+```{r}
+#Identificar o mês com mais lançamentos.
+imdb %>% 
+  arruma_data_lanc(imdb$data_lancamento) %>%
+  group_by(mes) %>% 
+  summarise(n_filmes = n()) %>% 
+  arrange(desc(n_filmes)) %>% 
+  head(1)
+
+#Descobrir o dia com mais lançamentos.
+imdb %>%  
+  arruma_data_lanc(imdb$data_lancamento) %>%
+  filter(!str_detect(dia, "NA")) %>% 
+  group_by(dia) %>% 
+  summarise(n_filmes = n()) %>% 
+  arrange(desc(n_filmes)) %>% 
+  head(1)
+
+
+#Ainda é preciso apresentar esses resultados no relatório.
+
+```
+
+##2.
+Qual o top 5 países com mais filmes na base?
+
+```{r}
+imdb %>%
+  mutate(pais = str_split(pais, ",")) %>% 
+  unnest(pais) %>% 
+  group_by(pais) %>% 
+  summarise(n_filmes = n()) %>% 
+  arrange(desc(n_filmes)) %>% 
+  head(1)
+  
+#Ainda é preciso apresentar esses resultados no relatório.
+
+```
+
+##3.
+Liste todas as moedas que aparecem nas colunas `orcamento` e `receita` da base `imdb_completa`.
+
+```{r}
+imdb %>%
+  select(orcamento, receita) %>% 
+  pivot_longer(
+    cols = c(orcamento, receita),
+    names_to = "orc/rec",
+    values_to = "valor"
+  ) %>% 
+  separate(
+    col = valor,
+    into = c("moeda", "valor"),
+    sep = " "
+  ) %>% 
+  select(moeda) %>% 
+  distinct() %>% 
+  filter(!is.na(moeda))
+
+#Ainda é preciso apresentar esses resultados no relatório.
+
+```
+
+
+##4.
+Considerando apenas orçamentos e receitas em dólar ($), qual o gênero com maior lucro? E com maior nota média?
+
+```{r}
+#Arrumando as colunas orcamento e receita,
+#e encontrando o maior lucro médio.
+imdb %>% 
+  filter(
+    str_detect(orcamento, "\\$") &
+    str_detect(receita, "\\$")
+  ) %>% 
+  mutate(
+    genero = str_split(genero, ","),
+    orcamento = str_remove(orcamento, "\\$ "),
+    orcamento = as.numeric(orcamento),
+    receita = str_remove(receita, "\\$ "),
+    receita = as.numeric(receita),
+    lucro = receita - orcamento
+  ) %>% 
+  unnest(cols = c(genero)) %>% 
+  group_by(genero) %>% 
+  summarise(lucro_medio = mean(lucro)) %>% 
+  arrange(desc(lucro_medio)) %>% 
+  head(1)
+#Ainda é preciso apresentar esses resultados no relatório.
+
+#Encontrando o gênero com maior nota média.
+imdb %>% 
+  mutate(genero = str_split(genero, ",")) %>% 
+  unnest(cols = c(genero)) %>% 
+  group_by(genero) %>% 
+  summarise(nota_media = mean(nota_imdb)) %>% 
+  arrange(desc(nota_media)) %>% 
+  head(1)
+
+#Ainda é preciso apresentar esses resultados no relatório.
+
+```
+
+##5.
+Dentre os filmes na base `imdb_completa`, escolha o seu favorito. Então faça os itens a seguir:
+
+a) Quem dirigiu o filme? Faça uma ficha dessa pessoa: idade (hoje em dia ou data de falecimento), onde nasceu, quantos filmes já dirigiu, qual o lucro médio dos filmes que dirigiu (considerando apenas valores em dólar) e outras informações que achar interessante (base `imdb_pessoas`).
+```{r}
+imdb %>% 
+  filter(str_detect(titulo, "Endless"))
+#Eu procurei por "The Endless Summer", um filme de surf de 1966,
+#mas não tem. Porém, encontrei essa paródia "Endless Bummer",
+#de 2009. Vai ela hehe
+
+
+#Ainda é preciso apresentar esses resultados no relatório.
+
+```
+
+b) Qual a posição desse filme no ranking de notas do IMDB? E no ranking de lucro (considerando apenas valores em dólar)?
+
+```{r}
+
+
+
+
+```
+
+c) Em que dia esse filme foi lançado? E dia da semana? Algum outro filme foi lançado no mesmo dia? Quantos anos você tinha nesse dia?
+
+```{r}
+
+
+
+
+```
+
+d) Faça um gráfico representando a distribuição da nota atribuída a esse filme por idade (base `imdb_avaliacoes`).
+
+```{r}
+
+
+
+
+```
+
