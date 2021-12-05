@@ -154,14 +154,73 @@ imdb %>%
 
 ##5.
 Dentre os filmes na base `imdb_completa`, escolha o seu favorito. Então faça os itens a seguir:
-
-a) Quem dirigiu o filme? Faça uma ficha dessa pessoa: idade (hoje em dia ou data de falecimento), onde nasceu, quantos filmes já dirigiu, qual o lucro médio dos filmes que dirigiu (considerando apenas valores em dólar) e outras informações que achar interessante (base `imdb_pessoas`).
 ```{r}
+#Escolher o filme preferido.
 imdb %>% 
   filter(str_detect(titulo, "Endless"))
 #Eu procurei por "The Endless Summer", um filme de surf de 1966,
 #mas não tem. Porém, encontrei essa paródia "Endless Bummer",
-#de 2009. Vai ela hehe
+#de 2009. Só que aí não tem o ano de nascimento do diretor...
+#Para não me desiludir novamente, vou filtrar as bases para
+#evitar escolher algum filme sem informações necessárias faltantes,
+#como data_nasc, local_nasc, orcamento sem $, receita sem $.
+
+#Diretores elegíveis:
+diretores_elegiveis <- imdb_pessoas %>% 
+  filter(across(
+    .cols = c(data_nascimento, local_nascimento),
+    .fns = ~!is.na(.x)
+    )
+  ) %>% 
+  pull(nome)
+
+#Data da CF88:
+CF88 <- ymd("1988-10-05")
+
+#Filmes elegíveis:
+filme_preferido <- imdb %>% 
+  filter(across(
+    .cols = c(orcamento, receita),
+    .fns = ~str_detect(.x, "\\$")
+  )) %>% 
+  filter(direcao %in% diretores_elegiveis) %>% 
+  mutate(data_lancamento = ymd(data_lancamento)) %>% 
+  mutate(dias_ate_CF88 = abs((data_lancamento %--% CF88) / ddays(1))) %>% 
+  select(titulo, direcao, data_lancamento, dias_ate_CF88) %>% 
+  arrange(dias_ate_CF88) %>% 
+  pull(titulo) %>% 
+  head(1)
+
+
+```
+
+a) Quem dirigiu o filme? Faça uma ficha dessa pessoa: idade (hoje em dia ou data de falecimento), onde nasceu, quantos filmes já dirigiu, qual o lucro médio dos filmes que dirigiu (considerando apenas valores em dólar) e outras informações que achar interessante (base `imdb_pessoas`).
+```{r}
+#Buscar diretor(a) do filme preferido, supondo que não há filmes
+#com o mesmo nome.
+diretor_a <- imdb %>% 
+  filter(titulo == filme_preferido) %>% 
+  pull(direcao)
+
+#idade (hoje em dia ou data de falecimento)
+imdb_pessoas %>%
+  filter(nome == diretor_a) %>% 
+  mutate(across(
+    .cols = contains("data"),
+    .fns = ymd
+  ))
+  
+
+#onde nasceu
+
+
+#quantos filmes já dirigiu
+
+
+#qual o lucro médio dos filmes que dirigiu (considerando apenas valores em dólar)
+
+
+#outras informações que achar interessante
 
 
 #Ainda é preciso apresentar esses resultados no relatório.
