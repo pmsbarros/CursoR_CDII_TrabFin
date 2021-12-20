@@ -51,6 +51,7 @@ library(ggplot2)
 Qual o mês do ano com o maior número de filmes? E o dia do ano?
 ```{r}
 #Identificar o mês com mais lançamentos.
+#Ativar a fórmula "arruma_data_lanc".
 imdb %>% 
   arruma_data_lanc(imdb$data_lancamento) %>%
   group_by(mes) %>% 
@@ -82,7 +83,7 @@ imdb %>%
   group_by(pais) %>% 
   summarise(n_filmes = n()) %>% 
   arrange(desc(n_filmes)) %>% 
-  head(1)
+  head(5)
   
 #Ainda é preciso apresentar esses resultados no relatório.
 
@@ -164,6 +165,7 @@ imdb %>%
 #Para não me desiludir novamente, vou filtrar as bases para
 #evitar escolher algum filme sem informações necessárias faltantes,
 #como data_nasc, local_nasc, orcamento sem $, receita sem $.
+#Depois, vou escolher o filme lançado mais próximo da CF88.
 
 #Diretores elegíveis:
 diretores_elegiveis <- imdb_pessoas %>% 
@@ -204,24 +206,73 @@ diretor_a <- imdb %>%
 
 #idade (hoje em dia ou data de falecimento)
 imdb_pessoas %>%
-  filter(nome == diretor_a) %>% 
+  filter(
+    nome == diretor_a,
+    !is.na(altura)) %>%
+  #Esse "!is.na(altura) foi gambiarra...
+  #A primeira vez que rodei o filtro, descobri que a base imdb_pessoas
+  #tem dois Barry Levinson!! Entendi que um deles é o diretor,
+  #e o outro deve ser algum ator...
+  #Pra minha "sorte", um deles morreu em 1987, e o filme é de 1988.
+  #Por isso, usei o dado "altura" só pra eliminar o outro...
+  #Foi uma solução 100% causística...
+  #pode descontar na nota do trabalho hehe
   mutate(across(
     .cols = contains("data"),
-    .fns = ymd
-  ))
-  
+    .fns = ~ymd(.x)
+  )) %>% 
+  select(contains("data")) %>% 
+  interval(
+    start = imdb_pessoas$data_nascimento,
+    end = imdb_pessoas$data_falecimento
+  )
+#Desisto  
+
 
 #onde nasceu
-
+imdb_pessoas %>%
+  filter(
+    nome == diretor_a,
+    !is.na(altura)) %>%
+    #Esse "!is.na(altura) foi gambiarra...
+    #A primeira vez que rodei o filtro, descobri que a base imdb_pessoas
+    #tem dois Barry Levinson!! Entendi que um deles é o diretor,
+    #e o outro deve ser algum ator...
+    #Pra minha "sorte", um deles morreu em 1987, e o filme é de 1988.
+    #Por isso, usei o dado "altura" só pra eliminar o outro...
+    #Foi uma solução 100% causística...
+    #pode descontar na nota do trabalho hehe
+  pull(local_nascimento)
 
 #quantos filmes já dirigiu
-
+imdb %>% 
+  filter(direcao == diretor_a) %>% 
+  count()
 
 #qual o lucro médio dos filmes que dirigiu (considerando apenas valores em dólar)
+imdb %>% 
+  filter(
+    direcao == diretor_a,
+    across(
+      .cols = c(orcamento,receita),
+      .fns = ~str_detect(.x, "\\$")
+    )
+  ) %>% 
+  mutate(
+    orcamento = str_remove(orcamento, "\\$ "),
+    orcamento = as.numeric(orcamento),
+    receita = str_remove(receita, "\\$ "),
+    receita = as.numeric(receita),
+    lucro = receita - orcamento
+  ) %>% 
+  group_by(direcao) %>% 
+  summarise(lucro_medio = mean(lucro)) %>% 
+  pull(lucro_medio)
+
 
 
 #outras informações que achar interessante
-
+#Nãããããoooooo tá bom já
 
 #Ainda é preciso apresentar esses resultados no relatório.
 
@@ -230,27 +281,78 @@ imdb_pessoas %>%
 b) Qual a posição desse filme no ranking de notas do IMDB? E no ranking de lucro (considerando apenas valores em dólar)?
 
 ```{r}
+imdb_ranking_nota <- imdb %>% 
+  arrange(desc(nota_imdb)) %>% 
+  mutate(posicao_nota = row_number()) %>% 
+  select(titulo, nota_imdb, posicao_nota)
 
+imdb_ranking_nota %>% 
+  filter(titulo == filme_preferido) %>% 
+  pull(posicao_nota)
 
-
+#Ainda é preciso apresentar esses resultados no relatório.
 
 ```
 
 c) Em que dia esse filme foi lançado? E dia da semana? Algum outro filme foi lançado no mesmo dia? Quantos anos você tinha nesse dia?
 
 ```{r}
+#Data de lançamento:
+data_lanc_filme_pref <- imdb %>% 
+  filter(titulo == filme_preferido) %>% 
+  pull(data_lancamento)
 
+#Dia da semana do lançamento:
+imdb %>% 
+  filter(titulo == filme_preferido) %>% 
+  pull(data_lancamento) %>% 
+  wday(label = TRUE, locale = "Portuguese_Brazil.1252")
+  #Obs: o R mostrou toda a cadeia de fatores.
+  #Se tivesse caído num sábado, ia dar problema de caracter...
 
+#Outros filmes lançados no mesmo dia do filme preferido:
+imdb %>% 
+  filter(data_lancamento %in% data_lanc_filme_pref) %>% 
+  select(titulo)
 
+#Minha idade no dia do lançamento:
+#Por questões de LGPD, vou usar a data de nascimento
+#de uma pessoa pública brasileira que eu gosto: 08/02/1958
 
+(dmy("08/02/1958") %--% ymd(data_lanc_filme_pref)) / dyears(1)
+#Tentei usar trunc e round, mas não consegui tirar os decimais...
+
+#Ainda é preciso apresentar esses resultados no relatório.
 ```
 
 d) Faça um gráfico representando a distribuição da nota atribuída a esse filme por idade (base `imdb_avaliacoes`).
 
 ```{r}
+#A base de avaliações não traz o título do filme,
+#então preciso ir buscar também o id do filme.
+id_filme_preferido <- imdb %>% 
+  filter(titulo == filme_preferido) %>% 
+  pull(id_filme)
 
+imdb_avaliacoes %>% 
+  filter(id_filme == id_filme_preferido) %>% #Filtrar o filme preferido;
+  select(contains("nota_media_idade")) %>% #Selecionar colunas etárias;
+  pivot_longer( #Arrumar para poder plotar;
+    cols = everything(),
+    names_to = "faixa_etaria",
+    values_to = "nota"
+  ) %>% 
+  mutate( #Reduzir labels e transformar em fator;
+    faixa_etaria = str_remove(faixa_etaria, "nota_media_idade_"),
+    faixa_etaria = as_factor(faixa_etaria)
+  ) %>% 
+  ggplot()+ #Plotar
+    geom_point(aes(
+      x = faixa_etaria,
+      y = nota
+    ))
 
-
+#Ainda é preciso apresentar esses resultados no relatório.
 
 ```
 
